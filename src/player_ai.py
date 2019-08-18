@@ -10,7 +10,7 @@ from game_engine import EMPTY
 
 IMPOSSIBLE_PREDICTION = -999
 
-MIN_QUALITY_VALUE = -1
+MIN_QUALITY_VALUE = 0
 MAX_QUALITY_VALUE = 1
 
 WIN = 'win'
@@ -78,7 +78,7 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
     def __init__(self, player_ai: PlayerAI,
                  base_learning_rate: float,
                  earlier_move_learning_rate_delay: float,
-                 nudge_factor: float = 0.1):
+                 nudge_factor: float = 0.05):
         self._nudge_factor = nudge_factor
         self._player_ai = player_ai
         self._base_learning_rate = base_learning_rate
@@ -100,12 +100,19 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
         original_prediction_array = self._player_ai.predict(flat_game_state=flat_game_state)
 
         prediction_array = original_prediction_array.copy()
+        prediction_array = np.clip(prediction_array,
+                                   a_min=MIN_QUALITY_VALUE,
+                                   a_max=MAX_QUALITY_VALUE)
 
         while True:
             max_indices = np.where(prediction_array == np.amax(prediction_array))
             np.random.shuffle(max_indices)
             # Just take the first one after the shuffle
-            next_move_index = max_indices[0][0]
+            try:
+                next_move_index = max_indices[0][0]
+            except IndexError:
+                log(f'max_indices {max_indices}')
+                raise
             # This should never be the maximum again
             prediction_array[next_move_index] = IMPOSSIBLE_PREDICTION
             # check valid move...
@@ -113,6 +120,8 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
                 break
             else:
                 log(f'Prediction for {self._player_ai.player_name} - Not a valid move, try again...')
+                log(f'{max_indices}')
+                log(f'{prediction_array}')
 
         self._player_ai_moves.append(
             PlayerAIMove(
@@ -147,11 +156,10 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
             target_predictions = player_ai_move.predictions.copy()
 
             # Nudge our move quality value...
-            new_quality_value = target_predictions[player_ai_move.move_index] + nudge_factor
-            new_quality_value = min(new_quality_value, MAX_QUALITY_VALUE)
-            new_quality_value = max(new_quality_value, MIN_QUALITY_VALUE)
-
-            target_predictions[player_ai_move.move_index] = new_quality_value
+            target_predictions[player_ai_move.move_index] += nudge_factor
+            target_predictions = np.clip(target_predictions,
+                                         a_min=MIN_QUALITY_VALUE,
+                                         a_max=MAX_QUALITY_VALUE)
 
             self._player_ai.train(
                 flat_game_state=player_ai_move.flat_game_state,

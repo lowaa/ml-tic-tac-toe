@@ -114,8 +114,8 @@ def self_play(player_1: PlayerAI,
 
 
 def print_self_play_results(self_play_result: SelfPlayResult) -> None:
-    print('tic win', self_play_result.tic_win)
-    print('tac win', self_play_result.tac_win)
+    print('player 1 win', self_play_result.player_1_wins)
+    print('player 2 win', self_play_result.player_2_wins)
     print('draw', self_play_result.draw)
     print('illegal predictions', self_play_result.illegal_predictions)
 
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     estimator = create_estimator()
 
     player_tic = DNNRegressorPlayer(player_name='bob',
-                                    base_learning_rate=0.4,
+                                    base_learning_rate=0.2,
                                     earlier_move_learning_rate_delay=0.9)
 
     # player_tac = DNNRegressorPlayer(player_name='carol',
