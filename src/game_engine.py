@@ -145,7 +145,12 @@ class TicTacToeGameEngine:
         :param move:
         :return:
         """
-        return TAC if move == TIC else TIC
+        if move == TAC:
+            return TIC
+        elif move == TIC:
+            return TAC
+        else:
+            raise ValueError(f'Unexpected value, got {move}')
 
 
 def convert_move_to_index(move: Move, num_cols: int) -> int:

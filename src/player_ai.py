@@ -10,6 +10,9 @@ from game_engine import EMPTY
 
 IMPOSSIBLE_PREDICTION = -999
 
+MIN_QUALITY_VALUE = -1
+MAX_QUALITY_VALUE = 1
+
 WIN = 'win'
 LOSS = 'loss'
 
@@ -30,6 +33,11 @@ def log(msg):
 
 
 class PlayerAIGameContext(metaclass=abc.ABCMeta):
+
+    @property
+    @abc.abstractmethod
+    def player_name(self) -> str:
+        pass
 
     @abc.abstractmethod
     def get_next_move(self, standardised_game_state: np.array) -> int:
@@ -70,12 +78,16 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
     def __init__(self, player_ai: PlayerAI,
                  base_learning_rate: float,
                  earlier_move_learning_rate_delay: float,
-                 nudge_factor: float = 0.3):
+                 nudge_factor: float = 0.1):
         self._nudge_factor = nudge_factor
         self._player_ai = player_ai
         self._base_learning_rate = base_learning_rate
         self._earlier_move_learning_rate_delay = earlier_move_learning_rate_delay
         self._player_ai_moves = []
+
+    @property
+    def player_name(self) -> str:
+        return self._player_ai.player_name
 
     def get_next_move(self, standardised_game_state: np.array) -> int:
         """
@@ -110,8 +122,10 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
             )
         )
 
-        return next_move_index
+        log(f'{self.player_name} moving to {next_move_index}')
+
         # Get the highest value output node that is a valid mode
+        return next_move_index
 
     def process_game_result(self, win_or_lose):
         """
@@ -132,8 +146,12 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
             # Adjust the target prediction by a nudge factor
             target_predictions = player_ai_move.predictions.copy()
 
-            # Nudge our value...
-            target_predictions[player_ai_move.move_index] += nudge_factor
+            # Nudge our move quality value...
+            new_quality_value = target_predictions[player_ai_move.move_index] + nudge_factor
+            new_quality_value = min(new_quality_value, MAX_QUALITY_VALUE)
+            new_quality_value = max(new_quality_value, MIN_QUALITY_VALUE)
+
+            target_predictions[player_ai_move.move_index] = new_quality_value
 
             self._player_ai.train(
                 flat_game_state=player_ai_move.flat_game_state,
@@ -201,15 +219,15 @@ class DNNRegressorPlayer(PlayerAI):
         if len(prediction) != 1:
             raise ValueError('expected prediction to be length 1')
 
-        log('------------------------------------------')
-        log(prediction)
+        log(f'Prediction array for {self.player_name}\n{prediction}')
         return prediction[0]['predictions']
 
     def train(self, flat_game_state: np.array, target_predictions: np.array, learning_rate=float):
+        log(f'Training...\n{flat_game_state}\n{target_predictions}\n{learning_rate}\n')
+
         dnn = self._create_dnn(learning_rate=learning_rate)
 
         def train_fn():
-            labels = {}
             features = {}
 
             for index, element in enumerate(flat_game_state):
@@ -217,23 +235,7 @@ class DNNRegressorPlayer(PlayerAI):
                 prev_array = features.setdefault(key, np.array([]))
                 features[key] = np.append(prev_array, [int(element)])
 
-            # for index, element in enumerate(target_predictions):
-            #     key = f'Q_{index}'
-            #     prev_array = labels.setdefault(key, np.array([]))
-            #     labels[key] = np.append(prev_array, [int(element)])
-            #
-            # labels = tf.cast(labels, tf.float32)
-            # Just a single data set...
-
-            # labels = np.array([target_predictions]).T
-
             labels = tf.constant(target_predictions, shape=[1, self._num_cells])
-
-            log('TRAINING FEATURES !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            log(features)
-
-            log('TRAINING LABELS ------------------------------------------------')
-            log(labels)
 
             return tf.data.Dataset.from_tensor_slices((features, labels)).batch(1)
 
@@ -246,3 +248,51 @@ class DNNRegressorPlayer(PlayerAI):
             base_learning_rate=self._base_learning_rate,
             earlier_move_learning_rate_delay=self._earlier_move_learning_rate_delay
         )
+
+
+class RandomPlayerGameContext(PlayerAIGameContext):
+
+    def __init__(self, player_ai: PlayerAI):
+        self._player_ai = player_ai
+
+    @property
+    def player_name(self) -> str:
+        return self._player_ai.player_name
+
+    def get_next_move(self, standardised_game_state: np.array) -> int:
+        flat_game_state = standardised_game_state.flatten()
+        while True:
+            next_move_index = np.random.randint(0, len(flat_game_state))
+            # check valid move...
+            if flat_game_state[next_move_index] == EMPTY:
+                break
+            else:
+                log(f'Prediction for {self._player_ai.player_name} - Not a valid move, try again...')
+
+        log(f'{self.player_name} moving to {next_move_index}')
+
+        return next_move_index
+
+    def process_game_result(self, win_or_lose):
+        pass
+
+
+class RandomPlayer(PlayerAI):
+
+    def __init__(self, player_name):
+        self._player_name = player_name
+
+    def train(self, flat_game_state: np.array, target_predictions: np.array, learning_rate=float):
+        pass
+
+    def predict(self, flat_game_state: np.array) -> np.array:
+        pass
+
+    def get_new_game_context(self) -> PlayerAIGameContext:
+        return RandomPlayerGameContext(
+            player_ai=self
+        )
+
+    @property
+    def player_name(self) -> str:
+        return self._player_name
