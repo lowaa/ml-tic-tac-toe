@@ -5,3 +5,6 @@ VirtualEnv
 .idea
 .DS_Store
 .hg
+tic_tac_toe_nn_model
+test_results
+.python-version
