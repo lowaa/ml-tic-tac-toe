@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     estimator = create_estimator()
 
-    self_play_result = self_play(estimator=estimator,
+    self_play_result = self_play(dnn=estimator,
                                  num_games=1,
                                  num_cols=settings.NUM_COLS,
                                  num_rows=settings.NUM_ROWS,
