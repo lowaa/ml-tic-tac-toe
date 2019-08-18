@@ -46,7 +46,7 @@ if __name__ == '__main__':
     estimator = create_estimator()
 
     self_play_result = self_play(estimator=estimator,
-                                 num_games=1000,
+                                 num_games=1,
                                  num_cols=settings.NUM_COLS,
                                  num_rows=settings.NUM_ROWS,
                                  vs_random=False)
@@ -55,5 +55,5 @@ if __name__ == '__main__':
 
     estimator.train(input_fn=get_train_fn(
         move_histories=self_play_result.move_histories),
-        steps=10000
+        steps=1
     )

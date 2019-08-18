@@ -5,9 +5,9 @@ import numpy as np
 
 import settings
 
-EMPTY = 9
-TIC = 0
-TAC = 1
+EMPTY = 0
+TIC = 7
+TAC = 8
 
 DRAW = 100
 
@@ -145,7 +145,7 @@ class TicTacToeGameEngine:
         :param move:
         :return:
         """
-        return (move + 1) % 2
+        return TAC if move == TIC else TIC
 
 
 def convert_move_to_index(move: Move, num_cols: int) -> int:

@@ -5,8 +5,8 @@ import numpy as np
 from game_engine import TIC, MoveHistory, TAC
 
 # Standardising X's and O's for use in neural net
-MINE = 4
-THEIRS = 5
+MINE = 1
+THEIRS = -1
 
 
 def standardise_game_state(state: np.array, my_move: int):
