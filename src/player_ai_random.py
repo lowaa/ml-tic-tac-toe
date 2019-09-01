@@ -27,7 +27,7 @@ class RandomPlayerGameContext(PlayerAIGameContext):
 
         return next_move_index
 
-    def process_game_result(self, win_or_lose):
+    def process_game_result(self, win_or_lose_or_draw: str):
         pass
 
 

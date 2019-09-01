@@ -7,24 +7,28 @@ import tensorflow as tf
 import settings
 from game_engine import EMPTY
 from player_ai import PlayerAIGameContext, PlayerAI, PlayerAIMove, MIN_QUALITY_VALUE, MAX_QUALITY_VALUE, log, \
-    IMPOSSIBLE_PREDICTION, WIN
+    PLAYER_WIN, PLAYER_LOSS
+
+
+# Probably don't ever want to enable this thing
+CLIP_NN_OUTPUT = False
 
 
 class DNNRegressorPlayerGameContext(PlayerAIGameContext):
     _player_ai: PlayerAI
     _player_ai_moves: List[PlayerAIMove]
     _base_learning_rate: float
-    _earlier_move_learning_rate_delay: float
+    _earlier_move_learning_rate_decay: float
     _nudge_factor: float
 
     def __init__(self, player_ai: PlayerAI,
                  base_learning_rate: float,
-                 earlier_move_learning_rate_delay: float,
+                 earlier_move_learning_rate_decay: float,
                  nudge_factor: float = 0.05):
         self._nudge_factor = nudge_factor
         self._player_ai = player_ai
         self._base_learning_rate = base_learning_rate
-        self._earlier_move_learning_rate_delay = earlier_move_learning_rate_delay
+        self._earlier_move_learning_rate_decay = earlier_move_learning_rate_decay
         self._player_ai_moves = []
 
     @property
@@ -42,12 +46,22 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
         original_prediction_array = self._player_ai.predict(flat_game_state=flat_game_state)
 
         prediction_array = original_prediction_array.copy()
-        prediction_array = np.clip(prediction_array,
-                                   a_min=MIN_QUALITY_VALUE,
-                                   a_max=MAX_QUALITY_VALUE)
+
+        if CLIP_NN_OUTPUT:
+            prediction_array = np.clip(prediction_array,
+                                       a_min=MIN_QUALITY_VALUE,
+                                       a_max=MAX_QUALITY_VALUE)
+
+        # We start by assuming the max value is at the END of the sorted array.
+        max_search_index = len(prediction_array) - 1
+
+        sorted_indices = np.argsort(prediction_array)
 
         while True:
-            max_indices = np.where(prediction_array == np.amax(prediction_array))
+            log(f'max search index {max_search_index}')
+            max_value = prediction_array[sorted_indices[max_search_index]]
+            log(f'max value {max_value}')
+            max_indices = np.where(prediction_array == max_value)
             np.random.shuffle(max_indices)
             # Just take the first one after the shuffle
             try:
@@ -56,7 +70,9 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
                 log(f'max_indices {max_indices}')
                 raise
             # This should never be the maximum again
-            prediction_array[next_move_index] = IMPOSSIBLE_PREDICTION
+            # try the next one down...
+            max_search_index -= len(max_indices)
+
             # check valid move...
             if flat_game_state[next_move_index] == EMPTY:
                 break
@@ -78,15 +94,22 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
         # Get the highest value output node that is a valid mode
         return next_move_index
 
-    def process_game_result(self, win_or_lose):
+    def process_game_result(self, win_or_lose_or_draw: str):
         """
         If win, weight winning moves positively
         If lose, weight losing moves negatively
-        :param win_or_lose:
+        :param win_or_lose_or_draw:
         :return:
         """
         # Positive learning rate if we win, negative if we lose
-        nudge_factor = self._nudge_factor if win_or_lose == WIN else -self._nudge_factor
+        if win_or_lose_or_draw == PLAYER_WIN:
+            nudge_factor = self._nudge_factor
+        elif win_or_lose_or_draw == PLAYER_LOSS:
+            nudge_factor = -self._nudge_factor
+        else:
+            # Draw
+            nudge_factor = self._nudge_factor * 0.5
+
         # Start learning from the last move and work our way backwards...
         moves_copy = list(self._player_ai_moves)
         moves_copy.reverse()
@@ -99,29 +122,31 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
 
             # Nudge our move quality value...
             target_predictions[player_ai_move.move_index] += nudge_factor
-            target_predictions = np.clip(target_predictions,
-                                         a_min=MIN_QUALITY_VALUE,
-                                         a_max=MAX_QUALITY_VALUE)
+
+            if CLIP_NN_OUTPUT:
+                target_predictions = np.clip(target_predictions,
+                                             a_min=MIN_QUALITY_VALUE,
+                                             a_max=MAX_QUALITY_VALUE)
 
             self._player_ai.train(
                 flat_game_state=player_ai_move.flat_game_state,
                 target_predictions=target_predictions,
                 learning_rate=learning_rate
             )
-            learning_rate *= self._earlier_move_learning_rate_delay
+            learning_rate *= self._earlier_move_learning_rate_decay
 
 
 class DNNRegressorPlayer(PlayerAI):
     _base_learning_rate: float
     _player_name: str
-    _earlier_move_learning_rate_delay: float
+    _earlier_move_learning_rate_decay: float
 
     def __init__(self, player_name: str,
                  base_learning_rate: float,
-                 earlier_move_learning_rate_delay: float):
+                 earlier_move_learning_rate_decay: float):
         self._player_name = player_name
         self._base_learning_rate = base_learning_rate
-        self._earlier_move_learning_rate_delay = earlier_move_learning_rate_delay
+        self._earlier_move_learning_rate_decay = earlier_move_learning_rate_decay
 
         self._feature_columns = []
 
@@ -196,5 +221,5 @@ class DNNRegressorPlayer(PlayerAI):
         return DNNRegressorPlayerGameContext(
             player_ai=self,
             base_learning_rate=self._base_learning_rate,
-            earlier_move_learning_rate_delay=self._earlier_move_learning_rate_delay
+            earlier_move_learning_rate_decay=self._earlier_move_learning_rate_decay
         )

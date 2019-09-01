@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from game_engine import TicTacToeGameEngine, DRAW, TIC, TAC
 from learn import create_estimator
 from learn_utils import standardise_game_state
-from player_ai import PlayerAI, WIN, LOSS
+from player_ai import PlayerAI, PLAYER_WIN, PLAYER_LOSS, PLAYER_DRAW
 from player_ai_random import RandomPlayer
 from player_ai_dnn_regressor import DNNRegressorPlayer
 from settings import NUM_ROWS, NUM_COLS
@@ -81,8 +81,8 @@ def self_play(player_1: PlayerAI,
             draws += 1
 
             # Lets just count a draw as win
-            player_1_game_context.process_game_result(win_or_lose=WIN)
-            player_2_game_context.process_game_result(win_or_lose=WIN)
+            player_1_game_context.process_game_result(win_or_lose_or_draw=PLAYER_DRAW)
+            player_2_game_context.process_game_result(win_or_lose_or_draw=PLAYER_DRAW)
 
         else:
             winner = engine.game_result
@@ -96,8 +96,8 @@ def self_play(player_1: PlayerAI,
                 else:
                     raise ValueError('unexpected player game context value')
 
-                player_tic_game_context.process_game_result(win_or_lose=WIN)
-                player_tac_game_context.process_game_result(win_or_lose=LOSS)
+                player_tic_game_context.process_game_result(win_or_lose_or_draw=PLAYER_WIN)
+                player_tac_game_context.process_game_result(win_or_lose_or_draw=PLAYER_LOSS)
 
             elif winner == TAC:
                 log(f'################### {player_tac_game_context.player_name} wins! ####################')
@@ -109,8 +109,8 @@ def self_play(player_1: PlayerAI,
                 else:
                     raise ValueError('unexpected player game context value')
 
-                player_tic_game_context.process_game_result(win_or_lose=LOSS)
-                player_tac_game_context.process_game_result(win_or_lose=WIN)
+                player_tic_game_context.process_game_result(win_or_lose_or_draw=PLAYER_LOSS)
+                player_tac_game_context.process_game_result(win_or_lose_or_draw=PLAYER_WIN)
             else:
                 raise ValueError(f'unexpected winner value {winner}')
 
@@ -163,11 +163,11 @@ if __name__ == '__main__':
 
     player_tic = DNNRegressorPlayer(player_name='bob',
                                     base_learning_rate=0.2,
-                                    earlier_move_learning_rate_delay=0.9)
+                                    earlier_move_learning_rate_decay=0.95)
 
     # player_tac = DNNRegressorPlayer(player_name='carol',
     #                                 base_learning_rate=0.4,
-    #                                 earlier_move_learning_rate_delay=0.5)
+    #                                 earlier_move_learning_rate_decay=0.5)
 
     player_tac = RandomPlayer(player_name='randy')
 
@@ -179,5 +179,3 @@ if __name__ == '__main__':
 
     print_self_play_results(my_self_play_result)
     draw_self_play_results_plot(my_self_play_result)
-
-

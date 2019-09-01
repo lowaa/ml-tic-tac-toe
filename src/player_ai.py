@@ -3,13 +3,12 @@ from typing import NamedTuple
 
 import numpy as np
 
-IMPOSSIBLE_PREDICTION = -999
-
 MIN_QUALITY_VALUE = 0
 MAX_QUALITY_VALUE = 1
 
-WIN = 'win'
-LOSS = 'loss'
+PLAYER_WIN = 'win'
+PLAYER_LOSS = 'loss'
+PLAYER_DRAW = 'draw'
 
 TrainMove = NamedTuple('TrainMove',
                        game_state=np.array,
@@ -39,7 +38,7 @@ class PlayerAIGameContext(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def process_game_result(self, win_or_lose):
+    def process_game_result(self, win_or_lose_or_draw: str):
         pass
 
 
@@ -61,5 +60,3 @@ class PlayerAI(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_new_game_context(self) -> PlayerAIGameContext:
         pass
-
-
