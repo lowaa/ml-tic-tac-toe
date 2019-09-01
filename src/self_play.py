@@ -64,7 +64,8 @@ def self_play(player_1: PlayerAI,
                 my_move=engine.next_move
             )
 
-            move_index = next_player_game_context.get_next_move(standardised_game_state=standardised_game_state)
+            move_index = next_player_game_context.get_next_move(standardised_game_state=standardised_game_state,
+                                                                session_complete_percentage=float(i) / num_games)
 
             if engine.is_valid_move_by_index(index=move_index):
                 engine.do_next_move_by_flat_index(index=move_index)
@@ -163,7 +164,7 @@ if __name__ == '__main__':
 
     player_tic = DNNRegressorPlayer(player_name='bob',
                                     base_learning_rate=0.2,
-                                    earlier_move_learning_rate_decay=0.95)
+                                    earlier_move_learning_rate_decay=0.9)
 
     # player_tac = DNNRegressorPlayer(player_name='carol',
     #                                 base_learning_rate=0.4,

@@ -3,18 +3,10 @@ from typing import NamedTuple
 
 import numpy as np
 
-MIN_QUALITY_VALUE = 0
-MAX_QUALITY_VALUE = 1
 
 PLAYER_WIN = 'win'
 PLAYER_LOSS = 'loss'
 PLAYER_DRAW = 'draw'
-
-TrainMove = NamedTuple('TrainMove',
-                       game_state=np.array,
-                       move=int,
-                       adjustment=float
-                       )
 
 PlayerAIMove = NamedTuple('PlayerMove',
                           flat_game_state=np.array,
@@ -34,7 +26,14 @@ class PlayerAIGameContext(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_next_move(self, standardised_game_state: np.array) -> int:
+    def get_next_move(self, standardised_game_state: np.array,
+                      session_complete_percentage: float) -> int:
+        """
+
+        :param standardised_game_state:
+        :param session_complete_percentage: number between 0 and 1
+        :return:
+        """
         pass
 
     @abc.abstractmethod

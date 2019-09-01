@@ -6,12 +6,8 @@ import tensorflow as tf
 
 import settings
 from game_engine import EMPTY
-from player_ai import PlayerAIGameContext, PlayerAI, PlayerAIMove, MIN_QUALITY_VALUE, MAX_QUALITY_VALUE, log, \
+from player_ai import PlayerAIGameContext, PlayerAI, PlayerAIMove, log, \
     PLAYER_WIN, PLAYER_LOSS
-
-
-# Probably don't ever want to enable this thing
-CLIP_NN_OUTPUT = False
 
 
 class DNNRegressorPlayerGameContext(PlayerAIGameContext):
@@ -35,9 +31,12 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
     def player_name(self) -> str:
         return self._player_ai.player_name
 
-    def get_next_move(self, standardised_game_state: np.array) -> int:
+    def get_next_move(self,
+                      standardised_game_state: np.array,
+                      session_complete_percentage: float) -> int:
         """
 
+        :param session_complete_percentage:
         :param standardised_game_state: I.e. game state from this player's point of view
         :return: index of the next move
         """
@@ -45,41 +44,53 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
 
         original_prediction_array = self._player_ai.predict(flat_game_state=flat_game_state)
 
-        prediction_array = original_prediction_array.copy()
+        if np.random.rand(1) > (2 * session_complete_percentage):
+            # After about half way, no more random business
+            log('DNNRegressor playing using random prediction')
+            # Just use a totally random value for training.
+            # The probability of this happens decreases as the session completes
+            while True:
+                next_move_index = np.random.randint(0, len(flat_game_state))
+                # check valid move...
+                if flat_game_state[next_move_index] == EMPTY:
+                    break
+                else:
+                    log(f'Prediction for {self._player_ai.player_name} - Not a valid move, try again...')
 
-        if CLIP_NN_OUTPUT:
-            prediction_array = np.clip(prediction_array,
-                                       a_min=MIN_QUALITY_VALUE,
-                                       a_max=MAX_QUALITY_VALUE)
+        else:
+            log('DNNRegressor playing using NN prediction')
+            # Use the neural network prediction
 
-        # We start by assuming the max value is at the END of the sorted array.
-        max_search_index = len(prediction_array) - 1
+            prediction_array = original_prediction_array.copy()
 
-        sorted_indices = np.argsort(prediction_array)
+            # We start by assuming the max value is at the END of the sorted array.
+            max_search_index = len(prediction_array) - 1
 
-        while True:
-            log(f'max search index {max_search_index}')
-            max_value = prediction_array[sorted_indices[max_search_index]]
-            log(f'max value {max_value}')
-            max_indices = np.where(prediction_array == max_value)
-            np.random.shuffle(max_indices)
-            # Just take the first one after the shuffle
-            try:
-                next_move_index = max_indices[0][0]
-            except IndexError:
-                log(f'max_indices {max_indices}')
-                raise
-            # This should never be the maximum again
-            # try the next one down...
-            max_search_index -= len(max_indices)
+            sorted_indices = np.argsort(prediction_array)
 
-            # check valid move...
-            if flat_game_state[next_move_index] == EMPTY:
-                break
-            else:
-                log(f'Prediction for {self._player_ai.player_name} - Not a valid move, try again...')
-                log(f'{max_indices}')
-                log(f'{prediction_array}')
+            while True:
+                log(f'max search index {max_search_index}')
+                max_value = prediction_array[sorted_indices[max_search_index]]
+                log(f'max value {max_value}')
+                max_indices = np.where(prediction_array == max_value)
+                np.random.shuffle(max_indices)
+                # Just take the first one after the shuffle
+                try:
+                    next_move_index = max_indices[0][0]
+                except IndexError:
+                    log(f'max_indices {max_indices}')
+                    raise
+                # This should never be the maximum again
+                # try the next one down...
+                max_search_index -= len(max_indices)
+
+                # check valid move...
+                if flat_game_state[next_move_index] == EMPTY:
+                    break
+                else:
+                    log(f'Prediction for {self._player_ai.player_name} - Not a valid move, try again...')
+                    log(f'{max_indices}')
+                    log(f'{prediction_array}')
 
         self._player_ai_moves.append(
             PlayerAIMove(
@@ -122,11 +133,6 @@ class DNNRegressorPlayerGameContext(PlayerAIGameContext):
 
             # Nudge our move quality value...
             target_predictions[player_ai_move.move_index] += nudge_factor
-
-            if CLIP_NN_OUTPUT:
-                target_predictions = np.clip(target_predictions,
-                                             a_min=MIN_QUALITY_VALUE,
-                                             a_max=MAX_QUALITY_VALUE)
 
             self._player_ai.train(
                 flat_game_state=player_ai_move.flat_game_state,

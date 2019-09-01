@@ -13,7 +13,9 @@ class RandomPlayerGameContext(PlayerAIGameContext):
     def player_name(self) -> str:
         return self._player_ai.player_name
 
-    def get_next_move(self, standardised_game_state: np.array) -> int:
+    def get_next_move(self,
+                      standardised_game_state: np.array,
+                      session_complete_percentage: float) -> int:
         flat_game_state = standardised_game_state.flatten()
         while True:
             next_move_index = np.random.randint(0, len(flat_game_state))
