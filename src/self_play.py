@@ -5,7 +5,9 @@ import numpy as np
 from game_engine import TicTacToeGameEngine, DRAW, TIC, TAC
 from learn import create_estimator
 from learn_utils import standardise_game_state
-from player_ai import PlayerAI, DNNRegressorPlayer, WIN, LOSS, RandomPlayer
+from player_ai import PlayerAI, WIN, LOSS
+from player_ai_random import RandomPlayer
+from player_ai_dnn_regressor import DNNRegressorPlayer
 from settings import NUM_ROWS, NUM_COLS
 
 SelfPlayResult = NamedTuple('SelfPlayResult',
