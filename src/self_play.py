@@ -1,6 +1,7 @@
-from typing import NamedTuple
+from typing import NamedTuple, List
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from game_engine import TicTacToeGameEngine, DRAW, TIC, TAC
 from learn import create_estimator
@@ -11,6 +12,9 @@ from player_ai_dnn_regressor import DNNRegressorPlayer
 from settings import NUM_ROWS, NUM_COLS
 
 SelfPlayResult = NamedTuple('SelfPlayResult',
+                            player_1_win_percentage_series=List[float],
+                            player_2_win_percentage_series=List[float],
+                            draw_percentage_series=List[float],
                             player_1_wins=float,
                             player_2_wins=float,
                             draw=float,
@@ -28,6 +32,9 @@ def self_play(player_1: PlayerAI,
     player_2_wins = 0
     draws = 0
     illegal_predictions = 0
+    player_1_win_percentage_series = []
+    player_2_win_percentage_series = []
+    draw_percentage_series = []
 
     for i in range(0, num_games):
         log(f'Playing game {i}')
@@ -107,7 +114,16 @@ def self_play(player_1: PlayerAI,
             else:
                 raise ValueError(f'unexpected winner value {winner}')
 
+        # Update series data
+        total_games = player_1_wins + player_2_wins + draws
+        player_1_win_percentage_series.append(player_1_wins / float(total_games))
+        player_2_win_percentage_series.append(player_2_wins / float(total_games))
+        draw_percentage_series.append(draws / float(total_games))
+
     return SelfPlayResult(
+        player_1_win_percentage_series=player_1_win_percentage_series,
+        player_2_win_percentage_series=player_2_win_percentage_series,
+        draw_percentage_series=draw_percentage_series,
         player_1_wins=player_1_wins / float(num_games),
         player_2_wins=player_2_wins / float(num_games),
         draw=draws / float(num_games),
@@ -120,6 +136,19 @@ def print_self_play_results(self_play_result: SelfPlayResult) -> None:
     print('player 2 win', self_play_result.player_2_wins)
     print('draw', self_play_result.draw)
     print('illegal predictions', self_play_result.illegal_predictions)
+
+
+def draw_self_play_results_plot(self_play_result: SelfPlayResult) -> None:
+    total_games = len(self_play_result.player_1_win_percentage_series)
+    game_number = list(range(1, int(total_games) + 1))
+
+    plt.plot(game_number, self_play_result.player_1_win_percentage_series, 'r')
+    plt.plot(game_number, self_play_result.player_2_win_percentage_series, 'b')
+    plt.plot(game_number, self_play_result.draw_percentage_series, 'g')
+    plt.xlabel('game number')
+    plt.ylabel('percentage')
+    plt.title('Self play result')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -149,3 +178,6 @@ if __name__ == '__main__':
                                     num_rows=NUM_ROWS)
 
     print_self_play_results(my_self_play_result)
+    draw_self_play_results_plot(my_self_play_result)
+
+
